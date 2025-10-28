@@ -2,7 +2,6 @@
 import streamlit as st
 import yfinance as yf
 import pandas_ta as ta
-import requests
 import os
 import sqlite3
 import datetime as dt
@@ -96,50 +95,6 @@ else:
 
 st.line_chart(df[["Close", "RSI"]])
 
-# ========= NEWS (TIẾNG VIỆT NẾU LÀ HH) =========
-st.subheader("📰 Tin tức liên quan")
-NEWS_API_KEY = os.getenv("NEWS_API_KEY", "").strip()
-
-COMMODITY_KEYWORDS = {
-    "SI=F": "bạc,giá bạc,đầu tư bạc",
-    "GC=F": "vàng,giá vàng,đầu tư vàng",
-    "CL=F": "dầu WTI,giá dầu",
-    "HG=F": "đồng,giá đồng",
-    "PL=F": "bạch kim,giá bạch kim",
-    "NG=F": "khí tự nhiên,giá khí",
-    "ZS=F": "đậu tương,giá đậu tương",
-    "ZC=F": "ngô,giá ngô",
-    "ZW=F": "lúa mì,giá lúa mì",
-}
-
-if NEWS_API_KEY:
-    try:
-        if ticker in COMMODITY_KEYWORDS:          # hàng hóa → từ khóa TV + ngôn ngữ VI
-            keywords = f"{ticker},{COMMODITY_KEYWORDS[ticker]}"
-            lang     = "vi"
-        else:                                     # cổ phiếu → chỉ mã + ngôn ngữ EN
-            keywords = ticker
-            lang     = "en"
-
-        url = (
-            f"https://newsapi.org/v2/everything"
-            f"?q={keywords}"
-            f"&language={lang}"
-            f"&sortBy=publishedAt"
-            f"&pageSize=5"
-            f"&apiKey={NEWS_API_KEY}"
-        )
-        data = requests.get(url, timeout=5).json()
-        if data.get("status") == "ok" and data["articles"]:
-            for art in data["articles"]:
-                st.write(f"- **{art['title']}** ({art['source']['name']}) – [đọc]({art['url']})")
-        else:
-            st.info("Chưa có tin mới.")
-    except Exception as e:
-        st.error("Lỗi tải tin tức: " + str(e))
-else:
-    st.info("Vui lòng thêm NEWS_API_KEY vào file .env để xem tin.")
-
 # ========= SQLITE =========
 with sqlite3.connect(DB_FILE) as conn:
     conn.execute(
@@ -157,6 +112,10 @@ df_hist = pd.read_sql(
     params=(ticker,)
 )
 if not df_hist.empty:
+    if "created_at" in df_hist.columns:
+        df_hist["created_at"] = pd.to_datetime(
+            df_hist["created_at"], errors="coerce"
+        ).dt.strftime("%d/%m/%Y %H:%M")
     st.dataframe(df_hist)
 else:
     st.info("Chưa có lịch sử cho mã này.")
